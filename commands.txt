@@ -1,0 +1,1 @@
+python PromptExperiment.py --bnf_filepath "grammars/implicatures.txt" --dataset "testsets/implicatures.json" --runs 3 --pop_size 30 --gens 5 --cx_prob_model 0.9 --cx_prob_attr_swap 0.9 --mut_prob_model 0.1 --mut_prob_param 0.1 --sample_data_size 3 --seed 42 --output_dir "output"
