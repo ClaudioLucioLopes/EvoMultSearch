@@ -3,7 +3,6 @@ from pymoo.core.duplicate import DuplicateElimination
 from typing import Any
 from PromptIndividual import PromptIndividual
 
-
 class PromptDuplicateElimination(DuplicateElimination):
     """
     Custom duplicate elimination strategy for PromptIndividual objects.
@@ -14,23 +13,8 @@ class PromptDuplicateElimination(DuplicateElimination):
     This class should be instantiated and passed to the `eliminate_duplicates`
     parameter of algorithms like NSGA2 when working with PromptIndividual objects.
     """
-
     def is_equal(self, indiv_a: Any, indiv_b: Any) -> bool:
-        """
-        Checks if two individuals (expected to be PromptIndividual objects)
-        are equal based on their attributes.
-
-        Args:
-            indiv_a: The first individual.
-            indiv_b: The second individual.
-
-        Returns:
-            True if individuals are considered duplicates, False otherwise.
-        """
-        # Check if both are instances of the PromptIndividual class
-        # This relies on PromptIndividual being defined/imported correctly
         if not isinstance(indiv_a, PromptIndividual) or not isinstance(indiv_b, PromptIndividual):
-            # If types don't match, they cannot be duplicates in this context
             return False
 
         # Compare all relevant attributes for equality.
