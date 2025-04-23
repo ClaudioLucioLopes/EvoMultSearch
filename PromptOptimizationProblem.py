@@ -167,10 +167,10 @@ class PromptOptimizationProblem(ElementwiseProblem):
                 continue
 
             try:
-                response_text, input_tokens, output_tokens = eval_individual.execute_prompt_with_transformer(
-                    **self.transformer_exec_config
-                )
-                # response_text, input_tokens, output_tokens = 'yes', random.randint(0, 1),random.randint(0, 1)
+                # response_text, input_tokens, output_tokens = eval_individual.execute_prompt_with_transformer(
+                #     **self.transformer_exec_config
+                # )
+                response_text, input_tokens, output_tokens = 'yes', 1,1
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
                 total_evaluated += 1

@@ -26,7 +26,7 @@ class PromptCrossover(Crossover):
             prob_attr_swap: The probability (0.0 to 1.0) for swapping each
                             individual content attribute during uniform crossover.
         """
-        super().__init__(n_parents=2, n_offsprings=2)
+        super().__init__(n_parents=2, n_offsprings=2,)
         if not (0.0 <= prob_model <= 1.0):
             raise ValueError("prob_model must be between 0.0 and 1.0")
         if not (0.0 <= prob_attr_swap <= 1.0):

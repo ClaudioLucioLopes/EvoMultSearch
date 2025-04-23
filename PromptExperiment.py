@@ -173,6 +173,7 @@ def run_optimization_experiment(
             crossover=crossover,
             mutation=mutation,
             eliminate_duplicates=duplicate_elimination_strategy,
+            # eliminate_duplicates=True,
             # n_offsprings=pop_size # Often set equal to pop_size
         )
         
@@ -190,12 +191,24 @@ def run_optimization_experiment(
 
         # e) Store Results from this run
         # res.opt contains the Population object of non-dominated solutions
+        unique_solutions_single_run = []
+        unique_objectives_list_single_run = []
+        
         if res.opt is not None and len(res.opt):
                 run_solutions = res.opt.get("X") # Get the individuals
                 run_objectives = res.opt.get("F") # Get the objectives
-                all_run_solutions.extend(run_solutions)
-                all_run_objectives.append(run_objectives) # Append the array of objectives
-                print(f"Run {run + 1} finished. Found {len(run_solutions)} non-dominated solutions.")
+                 # --- Deduplication Step ---
+                deduplicator = PromptDuplicateElimination() # Use your custom class
+
+                for i, current_sol in enumerate(run_solutions):
+                    is_duplicate = False
+                    for existing_sol in unique_solutions_single_run:
+                        if deduplicator.is_equal(current_sol, existing_sol):
+                            is_duplicate = True
+                            break
+                    if not is_duplicate:
+                        unique_solutions_single_run.append(current_sol)
+                        unique_objectives_list_single_run.append(run_objectives[i])
         else:
                 print(f"Run {run + 1} finished. No non-dominated solutions found.")
 
@@ -205,30 +218,66 @@ def run_optimization_experiment(
 
         end_time = time.time()
         print(f"Run {run + 1} duration: {end_time - start_time:.2f} seconds.")
+        print(f"Run {run + 1} finished. Found {len(unique_solutions_single_run)} non-duplicated solutions.")
+        print(f"Run {run + 1} finished. Found {len(unique_objectives_list_single_run)} objectives non-duplicated solutions.")
+        all_run_solutions.extend(unique_solutions_single_run)
+        all_run_objectives.extend(unique_objectives_list_single_run) # Append the array of objectives
 
 
     # --- 3. Aggregate and Find Final Pareto Front ---
     if not all_run_solutions:
         print("\nNo solutions found across any run.")
         return [], []
+    print(type(all_run_objectives),len(all_run_objectives),len(all_run_solutions))
+    unique_solutions_across_runs = []
+    unique_objectives_across_runs = []
+
+    for i, current_sol in enumerate(all_run_solutions):
+        is_duplicate = False
+        # Check against already added unique solutions
+        print('Starting:', current_sol[0],'\n')
+        for existing_sol in unique_solutions_across_runs:
+            if deduplicator.is_equal(current_sol[0], existing_sol):
+                print(existing_sol,current_sol[0],deduplicator.is_equal(current_sol[0], existing_sol))
+                is_duplicate = True
+                break
+        # If it's not a duplicate of any existing unique solution, add it
+        if not is_duplicate:
+            print('Entrou: ', current_sol[0])
+            unique_solutions_across_runs.append(current_sol[0])
+            unique_objectives_across_runs.append(all_run_objectives[i])
+        print('-'*40)
+        print(unique_solutions_across_runs)
+        print('-'*40)
+        
+    print('-'*40)
+    print(len(unique_objectives_across_runs),len(unique_solutions_across_runs))
+    print(unique_objectives_across_runs,unique_solutions_across_runs)
 
     print(f"\n--- Aggregating results from {num_runs} runs ---")
     # Combine objectives from all runs into a single NumPy array
-    combined_objectives = np.vstack(all_run_objectives)
+
+    # Convert unique objectives list back to NumPy array
+    unique_objectives_across_runs = np.array(unique_objectives_across_runs)
+    
+    combined_objectives = np.vstack(unique_objectives_across_runs)
     # all_run_solutions is already a flat list of individuals
+    
+    print(f"Total non-duplicated solutions found across runs: {len(unique_solutions_across_runs)}")
+    
 
-    print(f"Total non-dominated solutions found across runs: {len(all_run_solutions)}")
-    print(f"Shape of combined objectives: {combined_objectives.shape}")
-
-    # Perform non-dominated sorting on the combined results
-    nds = NonDominatedSorting()
-    # Pass objectives, get ranked indices
-    # We expect objectives to be shape (n_solutions, n_objectives)
-    front_indices = nds.do(combined_objectives, only_non_dominated_front=True) # Get only the first front indices
+    # # Perform non-dominated sorting on the combined results
+    # nds = NonDominatedSorting()
+    # # Pass objectives, get ranked indices
+    # # We expect objectives to be shape (n_solutions, n_objectives)
+    # front_indices = nds.do(combined_objectives, only_non_dominated_front=True) # Get only the first front indices
 
     # Extract the globally non-dominated solutions and their objectives
-    final_solutions = [all_run_solutions[i] for i in front_indices]
-    final_objectives = combined_objectives[front_indices]
+    # final_solutions = [unique_solutions_across_runs[i] for i in front_indices]
+    # final_objectives = combined_objectives[front_indices]
+
+    final_solutions = unique_solutions_across_runs
+    final_objectives = combined_objectives
 
     print(f"Found {len(final_solutions)} globally non-dominated solutions after merging.")
 
@@ -288,7 +337,7 @@ if __name__ == "__main__":
 
     # Example execution config (customize as needed)
     transformer_config = {
-        'device': 'auto', 'max_new_tokens': 3, 'quantization': None,
+        'device': 'auto', 'max_new_tokens': 1, 'quantization': None,
         'use_cache': False, 'temperature': 0.1, 'do_sample': False,
     }
 
@@ -336,7 +385,7 @@ if __name__ == "__main__":
         # 2. Save Solutions (JSON)
         solutions_filename = os.path.join(args.output_dir, f"{base_filename}_solutions.json")
         try:
-            solutions_data = [prompt_individual_to_dict(sol[0]) for sol in final_pareto_solutions]
+            solutions_data = [prompt_individual_to_dict(sol) for sol in final_pareto_solutions]
             with open(solutions_filename, 'w', encoding='utf-8') as f:
                 json.dump(solutions_data, f, indent=4)
             print(f"Solutions saved to: {solutions_filename}")
