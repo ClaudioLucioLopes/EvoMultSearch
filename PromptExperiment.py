@@ -75,11 +75,11 @@ def run_optimization_experiment(
         # Add others carefully based on available resources
         # "meta-llama/Llama-3-8B-Instruct", # Larger
         # "mistralai/Mistral-7B-Instruct-v0.2", # Larger
-        # "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", # Check availability/requirements
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", # Check availability/requirements
         "Qwen/Qwen2.5-1.5B-Instruct",
         "meta-llama/Llama-3.2-1B-Instruct",
-        # "microsoft/Phi-4-mini-instruct",
-        # "google/gemma-3-1b-it"
+        "microsoft/Phi-4-mini-instruct",
+        "google/gemma-3-1b-it"
     ]
     print(f"Using models: {models_to_use}")
 
@@ -228,31 +228,31 @@ def run_optimization_experiment(
     if not all_run_solutions:
         print("\nNo solutions found across any run.")
         return [], []
-    print(type(all_run_objectives),len(all_run_objectives),len(all_run_solutions))
+    # print(type(all_run_objectives),len(all_run_objectives),len(all_run_solutions))
     unique_solutions_across_runs = []
     unique_objectives_across_runs = []
 
     for i, current_sol in enumerate(all_run_solutions):
         is_duplicate = False
         # Check against already added unique solutions
-        print('Starting:', current_sol[0],'\n')
+        # print('Starting:', current_sol[0],'\n')
         for existing_sol in unique_solutions_across_runs:
             if deduplicator.is_equal(current_sol[0], existing_sol):
-                print(existing_sol,current_sol[0],deduplicator.is_equal(current_sol[0], existing_sol))
+                # print(existing_sol,current_sol[0],deduplicator.is_equal(current_sol[0], existing_sol))
                 is_duplicate = True
                 break
         # If it's not a duplicate of any existing unique solution, add it
         if not is_duplicate:
-            print('Entrou: ', current_sol[0])
+            # print('Entrou: ', current_sol[0])
             unique_solutions_across_runs.append(current_sol[0])
             unique_objectives_across_runs.append(all_run_objectives[i])
-        print('-'*40)
-        print(unique_solutions_across_runs)
-        print('-'*40)
+        # print('-'*40)
+        # print(unique_solutions_across_runs)
+        # print('-'*40)
         
-    print('-'*40)
-    print(len(unique_objectives_across_runs),len(unique_solutions_across_runs))
-    print(unique_objectives_across_runs,unique_solutions_across_runs)
+    # print('-'*40)
+    # print(len(unique_objectives_across_runs),len(unique_solutions_across_runs))
+    # print(unique_objectives_across_runs,unique_solutions_across_runs)
 
     print(f"\n--- Aggregating results from {num_runs} runs ---")
     # Combine objectives from all runs into a single NumPy array
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     )
     end_run_time = time.time()
     print(f"\nTotal experiment execution time: {end_run_time - start_run_time:.2f} seconds.")
-    print(final_pareto_solutions)
+    # print(final_pareto_solutions)
     # --- Save Final Results ---
     if final_pareto_solutions:
         print(f"\n--- Saving Final Pareto Front ({len(final_pareto_solutions)} solutions) ---")

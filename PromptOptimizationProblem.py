@@ -145,7 +145,7 @@ class PromptOptimizationProblem(ElementwiseProblem):
         failed_executions = 0
 
         
-        print(f"\nEvaluating Individual (Rule: {individual.get_rule_identifier()}, Model: {individual.model_name}) on {eval_description}...")
+        # print(f"\nEvaluating Individual (Rule: {individual.get_rule_identifier()}, Model: {individual.model_name}) on {eval_description}...")
 
         # --- Iterate over the selected sample ---
         for i, example in enumerate(dataset_to_evaluate):
@@ -167,10 +167,10 @@ class PromptOptimizationProblem(ElementwiseProblem):
                 continue
 
             try:
-                # response_text, input_tokens, output_tokens = eval_individual.execute_prompt_with_transformer(
-                #     **self.transformer_exec_config
-                # )
-                response_text, input_tokens, output_tokens = 'yes', 1,1
+                response_text, input_tokens, output_tokens = eval_individual.execute_prompt_with_transformer(
+                    **self.transformer_exec_config
+                )
+                # response_text, input_tokens, output_tokens = 'yes', 1,1
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
                 total_evaluated += 1
@@ -196,7 +196,7 @@ class PromptOptimizationProblem(ElementwiseProblem):
 
         # --- Calculate Final Objectives based on the sample ---
         if total_evaluated > 0:
-            print('total_correct / total_evaluated',total_correct, total_evaluated)
+            # print('total_correct / total_evaluated',total_correct, total_evaluated)
             overall_accuracy = total_correct / total_evaluated
             average_total_tokens = (total_input_tokens + total_output_tokens) / total_evaluated
         else:
@@ -208,7 +208,7 @@ class PromptOptimizationProblem(ElementwiseProblem):
         token_objective = average_total_tokens
         out["F"] = [accuracy_objective, token_objective]
 
-        print(f"Evaluation Summary (Sample): Correct={total_correct}/{total_evaluated} (Failed/Skipped: {failed_executions}). "
-              f"Objectives (F): [{accuracy_objective:.4f}, {token_objective:.2f}]")
+        # print(f"Evaluation Summary (Sample): Correct={total_correct}/{total_evaluated} (Failed/Skipped: {failed_executions}). "
+            #   f"Objectives (F): [{accuracy_objective:.4f}, {token_objective:.2f}]")
 
 
