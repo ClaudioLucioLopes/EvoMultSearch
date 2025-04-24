@@ -390,7 +390,7 @@ if __name__ == "__main__":
                 json.dump(solutions_data, f, indent=4)
             print(f"Solutions saved to: {solutions_filename}")
         except Exception as e:
-            print(f"Error saving solutions to {solutions_filename}: {e}")
+            print(f"Error saving solutions to  {solutions_filename}: {e}")
 
 
     print("\n--- Experiment Complete ---")
