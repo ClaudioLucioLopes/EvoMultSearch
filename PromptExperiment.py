@@ -173,7 +173,6 @@ def run_optimization_experiment(
             crossover=crossover,
             mutation=mutation,
             eliminate_duplicates=duplicate_elimination_strategy,
-            # eliminate_duplicates=True,
             # n_offsprings=pop_size # Often set equal to pop_size
         )
         

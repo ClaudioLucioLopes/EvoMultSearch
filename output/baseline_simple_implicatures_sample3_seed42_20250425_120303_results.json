@@ -1,0 +1,16 @@
+[
+    {
+        "baseline_prompt_name": "ZeroShot",
+        "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+        "accuracy": 0.0,
+        "average_tokens": 59.333333333333336,
+        "example_prompt_format": "Analyze the conversation. Does the second speaker's response imply 'yes' or 'no'? Respond with only 'yes' or 'no'.\n\nConversation:\nSAMPLE_INPUT_TEXT\n\nAnswer:"
+    },
+    {
+        "baseline_prompt_name": "Contextual",
+        "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+        "accuracy": 0.0,
+        "average_tokens": 70.33333333333333,
+        "example_prompt_format": "You are evaluating conversational implicatures. Determine if the second speaker's response implies 'yes' or 'no' to the underlying question or statement.\n\nRespond with only 'yes' or 'no'.\n\nConversation:\nSAMPLE_INPUT_TEXT\n\nAnswer:"
+    }
+]
