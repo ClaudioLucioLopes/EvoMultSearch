@@ -195,7 +195,7 @@ def format_contextual(input_text: str) -> str:
 BASELINE_MODELS = [
     # Include the same models used in the evolution for fair comparison
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", # Check availability/requirements
-    "Qwen/Qwen2.5-1.5B-Instruct"
+    "Qwen/Qwen2.5-1.5B-Instruct",
     "meta-llama/Llama-3.2-1B-Instruct",
     "microsoft/Phi-4-mini-instruct",
     "google/gemma-3-1b-it"
