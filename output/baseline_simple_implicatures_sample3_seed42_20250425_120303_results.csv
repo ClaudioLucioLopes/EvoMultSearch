@@ -1,3 +1,0 @@
-BaselineName,Model,Accuracy,AvgTokens
-ZeroShot,Qwen/Qwen2.5-1.5B-Instruct,0.000000,59.33
-Contextual,Qwen/Qwen2.5-1.5B-Instruct,0.000000,70.33
