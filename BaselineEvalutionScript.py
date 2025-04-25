@@ -64,6 +64,7 @@ def get_evaluation_sample(full_dataset: List[Dict], sample_size: Optional[int], 
         return full_dataset
     else:
         current_rng = random.Random(seed) # Seeded generator
+        run_seeds = [current_rng.randint(1, 2**31 - 1) for _ in range(1)]
         actual_sample_size = min(sample_size, full_dataset_size)
         print(f"Creating sample of size {actual_sample_size} (Seed: {seed}).")
         return current_rng.sample(full_dataset, actual_sample_size)
@@ -111,23 +112,11 @@ def execute_transformer_prompt(
         print(f"  Loading model/tokenizer: {model_id} (Quant: {quantization}, Device: {device})...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(model_id)
-            bnb_config = None
-            load_kwargs = {}
-            if quantization == "4bit" and torch.cuda.is_available():
-                 bnb_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.bfloat16)
-                 load_kwargs['quantization_config'] = bnb_config
-                 print("    Applying 4-bit quantization.")
-            elif quantization == "8bit" and torch.cuda.is_available():
-                 bnb_config = BitsAndBytesConfig(load_in_8bit=True)
-                 load_kwargs['quantization_config'] = bnb_config
-                 print("    Applying 8-bit quantization.")
-
             model = AutoModelForCausalLM.from_pretrained(
                 model_id,
-                device_map=device if not bnb_config else "auto",
+                device_map="auto",
                 torch_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16,
-                trust_remote_code=True,
-                **load_kwargs
+                trust_remote_code=True
             )
             model.eval()
             if use_cache:
@@ -198,7 +187,7 @@ BASELINE_MODELS = [
     "Qwen/Qwen2.5-1.5B-Instruct",
     "meta-llama/Llama-3.2-1B-Instruct",
     "microsoft/Phi-4-mini-instruct",
-    "google/gemma-3-1b-it"
+    "google/gemma-3-1b-it",
     # Add others if used in main experiment
 ]
 
@@ -299,7 +288,7 @@ if __name__ == "__main__":
                     total_input_tokens += in_tokens
                     total_output_tokens += out_tokens
                     total_evaluated += 1
-
+                    print(model_id,prompt_name,response.strip().lower(),correct_answer.lower())
                     if response is not None and response.strip().lower() == correct_answer.lower():
                         total_correct += 1
 
