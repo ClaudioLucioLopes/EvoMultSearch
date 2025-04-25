@@ -315,7 +315,7 @@ class PromptIndividual:
                 "input_content": self.input_content
             }
             rendered_prompt = prompt_template.render(template_context)
-            print('---'*40,rendered_prompt)
+            # print('---'*40,rendered_prompt)
         except Exception as e:
             raise ValueError(f"Failed to render prompt template: {e}") from e
         
@@ -333,7 +333,7 @@ class PromptIndividual:
             raise RuntimeError(f"Failed to tokenize prompt: {e}") from e
 
 
-        print(f"Generating response (max_new_tokens={max_new_tokens})...")
+        # print(f"Generating response (max_new_tokens={max_new_tokens})...")
         try:
             with torch.no_grad(): # Disable gradient calculation for inference
                 generation_config = {
@@ -356,7 +356,7 @@ class PromptIndividual:
             generated_ids = outputs[0, input_token_count:]
             response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-            print("Generation complete.")
+            # print("Generation complete.")
             return response_text.strip(), input_token_count, output_token_count
 
         except Exception as e:
