@@ -208,7 +208,7 @@ class PromptOptimizationProblem(ElementwiseProblem):
         token_objective = average_total_tokens
         out["F"] = [accuracy_objective, token_objective]
 
-        # print(f"Evaluation Summary (Sample): Correct={total_correct}/{total_evaluated} (Failed/Skipped: {failed_executions}). "
-            #   f"Objectives (F): [{accuracy_objective:.4f}, {token_objective:.2f}]")
+        print(f"Evaluation Summary (Sample): Correct={total_correct}/{total_evaluated} (Failed/Skipped: {failed_executions}). "
+              f"Objectives (F): [{accuracy_objective:.4f}, {token_objective:.2f}]")
 
 

@@ -1,361 +1,381 @@
-import numpy as np
-import argparse
-import random
-import copy
-import json
-import os
-import re
-import time
-from datetime import datetime
-from typing import List, Any, Optional, Dict, Tuple, Union
+# --- Required Mappings (MUST BE UPDATED in your code) ---
 
-# Transformers/Torch for execution
+PROMPT_TEMPLATE_STRING = r"""
+{# <START_OF_SYSTEM_PROMPT> #}
+{# Context always goes in the system prompt if provided #}
+{% if context_content is not none %}{{context_content}}{% endif %}
+{# <END_OF_SYSTEM_PROMPT> #}
+
+{# <START_OF_USER> #}
+{# --- Rule: zero_1 --- #}
+{% if rule_identifier == "zero_1" %}
+{{ req_content }} {{ instr_content }}\n{{ input_content }}
+{# --- Rule: zero_2 --- #}
+{% elif rule_identifier == "zero_2" %}
+{{ input_content }}\n{{ req_content }} {{ instr_content }}
+{# --- Rule: zero_3 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "zero_3" %}
+{{ input_content }}
+{# --- Rule: cot_1 --- #}
+{% elif rule_identifier == "cot_1" %}
+{{ req_content }} {{ instr_content }} For instance:\n{{ examples_content }}\n{{ input_content }}
+{# --- Rule: cot_2 --- #}
+{% elif rule_identifier == "cot_2" %}
+{{ req_content }} {{ instr_content }}\n{{ input_content }} For instance:\n{{ examples_content }}
+{# --- Rule: cot_3 --- #}
+{% elif rule_identifier == "cot_3" %}
+{{ input_content }}\n{{ req_content }} {{ instr_content }} For instance:\n{{ examples_content }}
+{# --- Rule: cot_4 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "cot_4" %}
+{{ input_content }} For instance:\n{{ examples_content }}
+{# --- Rule: zerocot_1 --- #}
+{% elif rule_identifier == "zerocot_1" %}
+{{ req_content }} {{ instr_content }}\n{{ input_content }}\n{{ cot_content }}
+{# --- Rule: zerocot_2 --- #}
+{% elif rule_identifier == "zerocot_2" %}
+{{ input_content }}\n{{ req_content }} {{ instr_content }}\n{{ cot_content }}
+{# --- Rule: zerocot_3 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "zerocot_3" %}
+{{ input_content }}\n{{ cot_content }}
+{# --- Rule: zerocot_4 --- #}
+{% elif rule_identifier == "zerocot_4" %}
+{{ cot_content }}\n{{ req_content }} {{ instr_content }}\n{{ input_content }}
+{# --- Rule: zerocot_5 --- #}
+{% elif rule_identifier == "zerocot_5" %}
+{{ cot_content }}\n{{ input_content }}\n{{ req_content }} {{ instr_content }}
+{# --- Rule: zerocot_6 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "zerocot_6" %}
+{{ cot_content }}\n{{ input_content }}
+{# --- Rule: zerocot_7 --- #}
+{% elif rule_identifier == "zerocot_7" %}
+{{ req_content }} {{ instr_content }}\n{{ cot_content }}\n{{ input_content }}
+{# --- Rule: combi_1 --- #}
+{% elif rule_identifier == "combi_1" %}
+{{ req_content }} {{ instr_content }} For instance:\n{{ examples_content }}\n{{ cot_content }}\n{{ input_content }}
+{# --- Rule: combi_2 --- #}
+{% elif rule_identifier == "combi_2" %}
+Consider these examples:\n{{ examples_content }}\n{{ req_content }} {{ instr_content }}\n{{ input_content }}\n{{ cot_content }}
+{# --- Rule: combi_3 --- #}
+{% elif rule_identifier == "combi_3" %}
+Consider these examples:\n{{ examples_content }}\n{{ input_content }}\n{{ req_content }} {{ instr_content }}\n{{ cot_content }}
+{# --- Rule: combi_4 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "combi_4" %}
+Consider these examples:\n{{ examples_content }}\n{{ input_content }}\n{{ cot_content }}
+{# --- Rule: combi_5 --- #}
+{% elif rule_identifier == "combi_5" %}
+Consider these examples:\n{{ examples_content }}\n{{ cot_content }}\n{{ req_content }} {{ instr_content }}\n{{ input_content }}
+{# --- Rule: combi_6 --- #}
+{% elif rule_identifier == "combi_6" %}
+Consider these examples:\n{{ examples_content }}\n{{ cot_content }}\n{{ input_content }}\n{{ req_content }} {{ instr_content }}
+{# --- Rule: combi_7 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "combi_7" %}
+Consider these examples:\n{{ examples_content }}\n{{ cot_content }}\n{{ input_content }}
+{# --- Rule: combi_8 --- #}
+{% elif rule_identifier == "combi_8" %}
+Consider these examples:\n{{ examples_content }}\n{{ req_content }} {{ instr_content }}\n{{ cot_content }}\n{{ input_content }}
+{# --- Rule: combi_9 --- #}
+{% elif rule_identifier == "combi_9" %}
+{{ req_content }} {{ instr_content }} For instance:\n{{ examples_content }}\n{{ input_content }}\n{{ cot_content }}
+{# --- Rule: combi_10 --- #}
+{% elif rule_identifier == "combi_10" %}
+{{ req_content }} {{ instr_content }}\n{{ input_content }} For instance:\n{{ examples_content }}\n{{ cot_content }}
+{# --- Rule: combi_11 --- #}
+{% elif rule_identifier == "combi_11" %}
+{{ input_content }}\n{{ req_content }} {{ instr_content }} For instance:\n{{ examples_content }}\n{{ cot_content }}
+{# --- Rule: combi_12 (Context is handled in SYSTEM) --- #}
+{% elif rule_identifier == "combi_12" %}
+{{ input_content }} For instance:\n{{ examples_content }}\n{{ cot_content }}
+{# --- Fallback/Error --- #}
+{% else %}
+Error: Invalid or missing rule_identifier '{{ rule_identifier }}' provided to the template.
+{% endif %}
+{# <END_OF_USER> #}
+"""
+
+# Change 'sbs' to 'cot' in this list
+ALL_COMPONENT_NAMES = ['context', 'req', 'instr', 'examples', 'cot', 'input']
+
+# Change 'sbs' to 'cot' in the *values* (lists) of this dictionary
+RULE_TO_COMPONENTS = {
+    "zero_1": ['req', 'instr', 'input'],
+    "zero_2": ['input', 'req', 'instr'],
+    "zero_3": ['context', 'input'],
+    "cot_1": ['req', 'instr', 'examples', 'input'],
+    "cot_2": ['req', 'instr', 'input', 'examples'],
+    "cot_3": ['input', 'req', 'instr', 'examples'],
+    "cot_4": ['context', 'input', 'examples'],
+    "zerocot_1": ['req', 'instr', 'input', 'cot'], 
+    "zerocot_2": ['input', 'req', 'instr', 'cot'],
+    "zerocot_3": ['context', 'input', 'cot'],     
+    "zerocot_4": ['cot', 'req', 'instr', 'input'], 
+    "zerocot_5": ['cot', 'input', 'req', 'instr'], 
+    "zerocot_6": ['cot', 'context', 'input'],      
+    "zerocot_7": ['req', 'instr', 'cot', 'input'], 
+    "combi_1": ['req', 'instr', 'examples', 'cot', 'input'], 
+    "combi_2": ['examples', 'req', 'instr', 'input', 'cot'], 
+    "combi_3": ['examples', 'input', 'req', 'instr', 'cot'], 
+    "combi_4": ['examples', 'context', 'input', 'cot'],      
+    "combi_5": ['examples', 'cot', 'req', 'instr', 'input'], 
+    "combi_6": ['examples', 'cot', 'input', 'req', 'instr'], 
+    "combi_7": ['examples', 'cot', 'context', 'input'],      
+    "combi_8": ['examples', 'req', 'instr', 'cot', 'input'], 
+    "combi_9": ['req', 'instr', 'examples', 'input', 'cot'], 
+    "combi_10": ['req', 'instr', 'input', 'examples', 'cot'], 
+    "combi_11": ['input', 'req', 'instr', 'examples', 'cot'], 
+    "combi_12": ['context', 'input', 'examples', 'cot'],      
+}
+ALL_RULE_IDENTIFIERS = list(RULE_TO_COMPONENTS.keys())
+
+
+# --- PromptIndividual Class Definition ---
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from jinja2 import Environment, Template # Needed for template processing
+from typing import Tuple, Any, Optional, Dict, List, Union 
+from functools import lru_cache
 
-# --- Reusable Helper Functions ---
+class PromptIndividual:
+    """
+    Represents a single prompt instance intended for use with pymoo.
 
-def load_dataset(path: str, input_key: str, target_scores_key: str) -> List[Dict[str, Any]]:
-    """Loads dataset from a JSON Lines file, using specified keys."""
-    data = []
-    print(f"Loading dataset from: {path}")
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f):
-                try:
-                    if line.strip():
-                        record = json.loads(line)
-                        # Basic validation
-                        if input_key not in record or target_scores_key not in record:
-                            # print(f"Warning: Skipping line {line_num+1}: Missing '{input_key}' or '{target_scores_key}'.")
-                            continue
-                        if not isinstance(record.get(target_scores_key), dict):
-                            # print(f"Warning: Skipping line {line_num+1}: '{target_scores_key}' is not a dictionary.")
-                            continue
-                        data.append(record)
-                except json.JSONDecodeError:
-                    print(f"Warning: Skipping invalid JSON on line {line_num+1} in {path}.")
-                except Exception as e:
-                    print(f"Warning: Error processing line {line_num+1} in {path}: {e}.")
-    except FileNotFoundError:
-        print(f"Error: Dataset file not found at {path}")
-        raise
-    except Exception as e:
-        print(f"Error loading dataset from {path}: {e}")
-        raise
-    print(f"Loaded {len(data)} valid records from {path} using keys '{input_key}' and '{target_scores_key}'.")
-    return data
+    Stores the prompt's structure internally (_rule_identifier) and content
+    for components including context, request, instruction, examples,
+    chain-of-thought (cot), and a mandatory input.
+    """
+    def __init__(self, rule_identifier: str,
+                 model_name: str, # Name of the target model
+                 context: Union[str, None], # Python 3.10+: context: str | None
+                 req: Union[str, None],
+                 instr: Union[str, None],
+                 examples: Union[str, None],
+                 cot: Union[str, None], # Renamed from sbs
+                 input_content: str,   # Changed: Cannot be None
+                 use_cache: bool = True):
+        """
+        Initializes a PromptIndividual.
 
-def get_correct_answer(target_scores: Dict[str, float]) -> Optional[str]:
-    """Finds the key corresponding to the 1.0 score. (Unchanged)"""
-    if not isinstance(target_scores, dict): return None
-    for key, score in target_scores.items():
+        Parameters
+        ----------
+        rule_identifier : str
+            Identifier for the prompt structure (key in RULE_TO_COMPONENTS). Stored internally.
+        model_name : str
+            Identifier for the target language model (e.g., "Llama3.2-1B"). Cannot be empty.
+        context : str or None
+            Content for the <context> component.
+        req : str or None
+            Content for the <req> component.
+        instr : str or None
+            Content for the <instr> component.
+        examples : str or None
+            Content for the <examples> component.
+        cot : str or None
+            Content for the <cot> (Chain-of-Thought) component. Replaces 'sbs'.
+        input_content : str
+            Content for the <input> component. This cannot be None.
+        use_cache : bool, optional
+            Whether to use caching for the `execute_transformer_prompt` method.
+            Defaults to True.
+        """
+        # Validate the rule_identifier before storing it internally
+        if rule_identifier not in RULE_TO_COMPONENTS:
+             raise ValueError(f"Unknown rule_identifier provided: {rule_identifier}")
+
+        if not model_name or not isinstance(model_name, str):
+            raise ValueError("model_name must be a non-empty string.")
+
+
+        # Ensure input_content is provided
+        if input_content is None:
+            raise ValueError("input_content cannot be None.")
+        # Optional: Add check if input_content is an empty string if that's invalid too
+        # if not isinstance(input_content, str) or len(input_content) == 0:
+        #    raise ValueError("input_content must be a non-empty string.")
+
+
+        # Store rule_identifier with a single underscore to denote internal/protected use
+        self._rule_identifier: str = rule_identifier
+
+        # Store the target model name (public attribute)
+        self.model_name: str = model_name
+
+        # Content attributes remain public
+        self.context_content: Optional[str] = context
+        self.req_content: Optional[str] = req
+        self.instr_content: Optional[str] = instr
+        self.examples_content: Optional[str] = examples
+        self.cot_content: Optional[str] = cot 
+        self.input_content: str = input_content 
+        self.use_cache: bool = use_cache
+        if use_cache:
+            self._execute_transformer_prompt_cached = lru_cache(maxsize=None)(self._execute_transformer_prompt_internal)
+        else:
+            self._execute_transformer_prompt_cached = self._execute_transformer_prompt_internal
+
+    def get_rule_identifier(self) -> str:
+        """Returns the internal rule identifier."""
+        return self._rule_identifier
+
+    def get_active_component_attrs(self) -> List[str]:
+        """
+        Returns the list of full attribute names (e.g., 'req_content', 'cot_content')
+        corresponding to the components that are active/used by this
+        individual's internal rule_identifier, based on the RULE_TO_COMPONENTS mapping.
+        """
+        # Access the internal attribute
+        # Uses the externally defined RULE_TO_COMPONENTS map (which MUST be updated)
+        required_short_names = RULE_TO_COMPONENTS.get(self._rule_identifier, [])
+        # Convert to full attribute names (like 'req_content', 'cot_content')
+        return [f"{name}_content" for name in required_short_names]
+
+    def __repr__(self) -> str:
+        """Provides a concise string representation, hiding the internal rule ID."""
+        active_attrs_list = self.get_active_component_attrs()
+        # Ensure ALL_COMPONENT_NAMES used here is the updated one (with 'cot')
+        active_short_names = {attr.replace('_content', '') for attr in active_attrs_list}
+
+        content_repr_parts = []
+        # Uses the externally defined ALL_COMPONENT_NAMES list (which MUST be updated)
+        for short_name in ALL_COMPONENT_NAMES:
+            if short_name in active_short_names:
+                attr_name = f"{short_name}_content"
+                has_content = getattr(self, attr_name, None) is not None
+                content_repr_parts.append(f"{short_name}={'Yes' if has_content else 'No'}")
+
+        content_summary = ", ".join(content_repr_parts)
+        return (f"PromptIndividual(Model: {self.model_name}, "
+                f"Rule: {self._rule_identifier}, " # Use internal directly in repr
+                f"ActiveComponents: [{content_summary}], UseCache: {self.use_cache})")
+    
+    def copy(self):
+        import copy
+        return copy.deepcopy(self)
+    
+    def execute_prompt_with_transformer(self, device: str = "auto",
+                                        max_new_tokens: int = 512, **generation_kwargs: Any
+    ) -> Tuple[str, int, int]:
+        """
+        Constructs a prompt from PromptIndividual, executes it using a Hugging Face
+        transformer model, and returns the response text and token counts.
+        Utilizes caching based on the `use_cache` attribute.
+
+        Args:
+            device: The device to run inference on ("auto", "cuda", "cpu", "mps").
+                    Defaults to "auto".
+            max_new_tokens: Maximum number of new tokens to generate.
+            **generation_kwargs: Additional keyword arguments passed directly to
+                                `model.generate()`. Examples: `temperature=0.7`,
+                                `do_sample=True`, `top_k=50`.
+
+        Returns:
+            A tuple containing:
+            - The generated response text (str).
+            - The number of input tokens (int).
+            - The number of newly generated output tokens (int).
+
+        Raises:
+            ImportError: If 'transformers', 'torch', or 'jinja2' are not installed.
+            ValueError: If the model_name is invalid or template rendering fails.
+            RuntimeError: If issues occur during model loading or generation (e.g., OOM).
+            Exception: Other potential errors during execution.
+        """
+        return self._execute_transformer_prompt_cached(device, max_new_tokens, **generation_kwargs)
+
+    def _execute_transformer_prompt_internal(self, device: str = "auto",
+                                             max_new_tokens: int = 512, **generation_kwargs: Any
+    ) -> Tuple[str, int, int]:
+        """
+        Internal method to construct and execute the prompt with the transformer model.
+        This method is cached if `use_cache` is True.
+        """
+        model_id = self.model_name
+        if not model_id:
+            raise ValueError("PromptIndividual must have a valid 'model_name' attribute set to a Hugging Face ID.")
+
+        # Create a Jinja2 template object
+        # --- Jinja2 Template Object (Needs to be created from the string) ---
+        # Ensure PROMPT_TEMPLATE_STRING is defined correctly above
         try:
-                if float(score) == 1.0: return key
-        except (ValueError, TypeError): continue
-    print(f"Warning: No key found with score 1.0 in target_scores: {target_scores}")
-    return None
+            prompt_template = Template(PROMPT_TEMPLATE_STRING)
+        except NameError:
+            raise NameError("PROMPT_TEMPLATE_STRING is not defined. Make sure the template string is included.")
 
-def get_evaluation_sample(full_dataset: List[Dict], sample_size: Optional[int], seed: Optional[int]) -> List[Dict]:
-    """Returns the specific sample to be used for evaluation based on seed and size."""
-    full_dataset_size = len(full_dataset)
-    if sample_size is None or sample_size >= full_dataset_size:
-        print(f"Using full dataset ({full_dataset_size} examples).")
-        return full_dataset
-    else:
-        current_rng = random.Random(seed) # Seeded generator
-        run_seeds = [current_rng.randint(1, 2**31 - 1) for _ in range(1)]
-        actual_sample_size = min(sample_size, full_dataset_size)
-        print(f"Creating sample of size {actual_sample_size} (Seed: {seed}).")
-        return current_rng.sample(full_dataset, actual_sample_size)
+        # --- 1. Get Model and Tokenizer---
+        tokenizer = None
+        model = None
 
-# --- Standalone Transformer Execution Function ---
-# (Adapted from PromptIndividual.execute_prompt_with_transformer)
-
-# Global cache for models and tokenizers
-_hf_model_cache: Dict[str, Any] = {}
-_hf_tokenizer_cache: Dict[str, Any] = {}
-
-def execute_transformer_prompt(
-    prompt_text: str,
-    model_id: str,
-    exec_config: Dict[str, Any],
-    use_cache: bool = True # Enable caching by default for efficiency
-) -> Tuple[Optional[str], int, int]:
-    """
-    Executes a prompt using a specified Hugging Face transformer model.
-
-    Args:
-        prompt_text: The complete text prompt to send to the model.
-        model_id: The Hugging Face identifier for the model.
-        exec_config: Dictionary with execution parameters like 'device',
-                     'max_new_tokens', 'quantization', 'temperature', etc.
-        use_cache: Whether to use the global cache for models/tokenizers.
-
-    Returns:
-        A tuple containing:
-        - The generated response text (str) or None if error.
-        - Input token count (int).
-        - Output token count (int).
-    """
-    tokenizer = None
-    model = None
-    device = exec_config.get('device', 'auto')
-    quantization = exec_config.get('quantization') # e.g., '4bit', '8bit', None
-    cache_key = f"{model_id}_{device}_{quantization}"
-
-    # --- 1. Get Model and Tokenizer (with Caching) ---
-    if use_cache and cache_key in _hf_model_cache:
-        model = _hf_model_cache[cache_key]
-        tokenizer = _hf_tokenizer_cache[cache_key]
-    else:
-        print(f"  Loading model/tokenizer: {model_id} (Quant: {quantization}, Device: {device})...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(model_id)
             model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                device_map="auto",
-                torch_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16,
-                trust_remote_code=True
-            )
-            model.eval()
-            if use_cache:
-                _hf_model_cache[cache_key] = model
-                _hf_tokenizer_cache[cache_key] = tokenizer
-            print(f"  Model {model_id} loaded.")
+                    model_id,
+                    device_map="auto", # device_map='auto' is often needed with quantization
+                    torch_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16, # Use bfloat16 if available for better perf/acc
+                    trust_remote_code=True, # Sometimes needed for custom architectures
+                    # use_flash_attention_2=True, # Optional: Requires flash-attn library for faster attention
+                )
+                # If not using device_map, manually move model:
+                # if not bnb_config and device != "auto":
+                #     model.to(torch.device(device)) # Move model to specified device if not quantized
+
+            model.eval() # Set model to evaluation mode
         except Exception as e:
-            print(f"  Error loading model/tokenizer {model_id}: {e}")
-            return None, 0, 0 # Return error state
+            raise RuntimeError(f"Failed to load model or tokenizer '{model_id}': {e}") from e
 
-    # --- 2. Tokenize Input ---
-    try:
-        if tokenizer.pad_token is None: tokenizer.pad_token = tokenizer.eos_token
-        inputs = tokenizer(prompt_text, return_tensors="pt", padding=False, truncation=False)
-        input_ids = inputs["input_ids"].to(model.device)
-        input_token_count = input_ids.shape[1]
-    except Exception as e:
-        print(f"  Error tokenizing prompt: {e}")
-        return None, 0, 0
-
-    # --- 3. Generate Response ---
-    output_token_count = 0
-    response_text = None
-    try:
-        with torch.no_grad():
-            generation_config = {
-                "max_new_tokens": exec_config.get('max_new_tokens', 10), # Default low
-                "pad_token_id": tokenizer.pad_token_id,
-                "eos_token_id": tokenizer.eos_token_id,
-                "temperature": exec_config.get('temperature', 0.1),
-                "do_sample": exec_config.get('do_sample', False),
-                # Add other relevant params from exec_config if needed (top_k, top_p)
+        
+        # --- 2. Prepare Prompt ---
+        try:
+            template_context: Dict[str, Any] = {
+                "rule_identifier": self.get_rule_identifier(),
+                "context_content": self.context_content,
+                "req_content": self.req_content,
+                "instr_content": self.instr_content,
+                "examples_content": self.examples_content,
+                "cot_content": self.cot_content,
+                "input_content": self.input_content
             }
-            generation_config = {k: v for k, v in generation_config.items() if v is not None}
+            rendered_prompt = prompt_template.render(template_context)
+            # print('---'*40,rendered_prompt)
+        except Exception as e:
+            raise ValueError(f"Failed to render prompt template: {e}") from e
+        
 
-            outputs = model.generate(input_ids, **generation_config)
+        # --- 3. Tokenize Input ---
+        try:
+            # Ensure tokenizer has a pad token; common for generation with left padding
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token 
+
+            inputs = tokenizer(rendered_prompt, return_tensors="pt", padding=False, truncation=False) # No padding/truncation here
+            input_ids = inputs["input_ids"].to(model.device) # Move input IDs to model's device
+            input_token_count = input_ids.shape[1]
+        except Exception as e:
+            raise RuntimeError(f"Failed to tokenize prompt: {e}") from e
+
+
+        # print(f"Generating response (max_new_tokens={max_new_tokens})...")
+        try:
+            with torch.no_grad(): # Disable gradient calculation for inference
+                generation_config = {
+                    "max_new_tokens": max_new_tokens,
+                    "pad_token_id": tokenizer.pad_token_id,
+                    "eos_token_id": tokenizer.eos_token_id,
+                    **generation_kwargs # Merge user-provided generation args
+                }
+                # Filter out None values from generation_config if any tokenizer tokens were None
+                generation_config = {k: v for k, v in generation_config.items() if v is not None}
+
+                outputs = model.generate(input_ids,**generation_config)
+
+            # --- 5. Process Output ---
+            # Calculate output tokens
             output_token_count = outputs.shape[1] - input_token_count
-            if output_token_count < 0: output_token_count = 0
+            if output_token_count < 0: output_token_count = 0 # Handle edge case
+
+            # Decode only the newly generated tokens
             generated_ids = outputs[0, input_token_count:]
             response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-    except Exception as e:
-        print(f"  Error during model generation: {e}")
-        return None, input_token_count, 0 # Return input tokens even if generation fails
+            # print("Generation complete.")
+            return response_text.strip(), input_token_count, output_token_count
 
-    return response_text.strip() if response_text else None, input_token_count, output_token_count
-
-
-# --- Baseline Prompt Formatting Functions ---
-
-def format_zero_shot(input_text: str) -> str:
-    """Creates a simple zero-shot prompt."""
-    # Basic instruction suitable for the yes/no implicature task
-    instruction = "Analyze the conversation. Does the second speaker's response imply 'yes' or 'no'? Respond with only 'yes' or 'no'."
-    return f"{instruction}\n\nConversation:\n{input_text}\n\nAnswer:"
-
-def format_contextual(input_text: str) -> str:
-    """Creates a prompt with fixed context."""
-    context = "You are evaluating conversational implicatures. Determine if the second speaker's response implies 'yes' or 'no' to the underlying question or statement."
-    instruction = "Respond with only 'yes' or 'no'."
-    return f"{context}\n\n{instruction}\n\nConversation:\n{input_text}\n\nAnswer:"
-
-# --- Baseline Configuration ---
-
-BASELINE_MODELS = [
-    # Include the same models used in the evolution for fair comparison
-    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", # Check availability/requirements
-    "Qwen/Qwen2.5-1.5B-Instruct",
-    "meta-llama/Llama-3.2-1B-Instruct",
-    "microsoft/Phi-4-mini-instruct",
-    "google/gemma-3-1b-it",
-    # Add others if used in main experiment
-]
-
-# Map names to formatting functions
-BASELINE_PROMPT_FORMATTERS = {
-    "ZeroShot": format_zero_shot,
-    # "Contextual": format_contextual,
-}
-
-
-# --- Main Execution Block ---
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Simplified Baseline Prompt Evaluation")
-    parser.add_argument("--dataset", required=True, help="Path to the evaluation dataset (JSON Lines)")
-    parser.add_argument("--sample_data_size", type=int, default=None, help="Evaluation dataset sample size (None=full)")
-    parser.add_argument("--seed", type=int, required=True, help="Seed for evaluation sampling (MUST match main experiment)")
-    parser.add_argument("--output_dir", default=".", help="Directory to save baseline results")
-    parser.add_argument("--drive_dir", default="PromptEvolutionResults/Baselines_Simple", help="Subdirectory name within MyDrive for Colab output")
-    # Add arguments for transformer_config if needed
-    parser.add_argument("--max_new_tokens", type=int, default=10, help="Max new tokens for generation")
-    parser.add_argument("--device", default="auto", help="Device for transformer ('auto', 'cuda', 'cpu')")
-
-    args = parser.parse_args()
-
-    # --- Detect Colab and Mount Drive ---
-    # (Same logic as before)
-    running_in_colab = False; google_drive_mount_point = "/content/drive"
-    try: import google.colab; running_in_colab = True; print("Colab detected.")
-    except ImportError: print("Not in Colab.")
-    if running_in_colab:
-        try: from google.colab import drive; drive.mount(google_drive_mount_point, force_remount=True); print("Drive mounted.")
-        except Exception as e: print(f"Drive mount error: {e}. Saving locally."); running_in_colab = False
-
-    # --- Determine Effective Output Directory ---
-    if running_in_colab: effective_output_dir = os.path.join(google_drive_mount_point, 'MyDrive', args.drive_dir)
-    else: effective_output_dir = args.output_dir
-    print(f"Output directory: {effective_output_dir}")
-    try: os.makedirs(effective_output_dir, exist_ok=True); print("Output directory ensured.")
-    except OSError as e: print(f"Error creating output dir: {e}. Exiting."); exit()
-
-    # --- Setup Evaluation ---
-    transformer_config = {
-        'device': args.device,
-        'max_new_tokens': args.max_new_tokens,
-        'quantization': None, # Add arg if needed
-        'use_cache': False, # Keep false for baseline consistency? Or True for speed? Let's use True.
-        'temperature': 0.1,
-        'do_sample': False,
-    }
-    print(f"Using Transformer Config: {transformer_config}")
-
-    # Load dataset and get sample
-    try:
-        full_dataset = load_dataset(args.dataset, 'input', 'target_scores')
-        evaluation_sample = get_evaluation_sample(full_dataset, args.sample_data_size, args.seed)
-        print(f"Using evaluation sample of size {len(evaluation_sample)} based on seed {args.seed}.")
-    except Exception as e:
-        print(f"Fatal Error: Could not load dataset sample: {e}")
-        exit()
-
-    # --- Run Baseline Evaluations ---
-    baseline_results = []
-    start_baseline_time = time.time()
-
-    print("\n--- Starting Simplified Baseline Evaluations ---")
-    for model_id in BASELINE_MODELS:
-        print(f"\n--- Evaluating Model: {model_id} ---")
-        # Clear cache if desired between models, or keep for potential reuse if models share components
-        # _hf_model_cache.clear()
-        # _hf_tokenizer_cache.clear()
-
-        for prompt_name, format_func in BASELINE_PROMPT_FORMATTERS.items():
-            print(f"  Evaluating Prompt Format: {prompt_name}")
-
-            total_correct = 0; total_input_tokens = 0; total_output_tokens = 0
-            total_evaluated = 0; failed_executions = 0
-            total_attempted = len(evaluation_sample)
-
-            for i, example in enumerate(evaluation_sample):
-                input_text = example.get('input')
-                target_scores = example.get('target_scores')
-                correct_answer = get_correct_answer(target_scores)
-
-                if not isinstance(input_text, str) or correct_answer is None:
-                    failed_executions += 1; continue
-
-                # Format the prompt using the current function
-                prompt_string = format_func(input_text)
-
-                # Execute the prompt
-                try:
-                    response, in_tokens, out_tokens = execute_transformer_prompt(
-                        prompt_text=prompt_string,
-                        model_id=model_id,
-                        exec_config=transformer_config,
-                        use_cache=True # Use cache within model eval loop
-                    )
-                    total_input_tokens += in_tokens
-                    total_output_tokens += out_tokens
-                    total_evaluated += 1
-                    print(model_id,prompt_name,response.strip().lower(),correct_answer.lower())
-                    if response is not None and response.strip().lower() == correct_answer.lower():
-                        total_correct += 1
-
-                except Exception as e:
-                    failed_executions += 1
-                    print(f"    Error executing example {i+1}/{total_attempted}: {e}")
-
-            # Calculate results for this model/prompt combo
-            if total_evaluated > 0:
-                accuracy = total_correct / total_evaluated
-                avg_tokens = (total_input_tokens + total_output_tokens) / total_evaluated
-            else:
-                accuracy = 0.0
-                avg_tokens = float('inf')
-
-            print(f"    Result: Acc={accuracy:.4f}, AvgTokens={avg_tokens:.2f} (Evaluated={total_evaluated}/{total_attempted})")
-
-            # Store results
-            result_entry = {
-                "baseline_prompt_name": prompt_name,
-                "model_name": model_id,
-                "accuracy": accuracy,
-                "average_tokens": avg_tokens,
-                # Optionally store example formatted prompt
-                "example_prompt_format": format_func("SAMPLE_INPUT_TEXT")
-            }
-            baseline_results.append(result_entry)
-
-    end_baseline_time = time.time()
-    print(f"\nTotal baseline evaluation time: {end_baseline_time - start_baseline_time:.2f} seconds.")
-
-    # --- Save Baseline Results ---
-    if baseline_results:
-        print(f"\n--- Saving Baseline Results ({len(baseline_results)} entries) ---")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dataset_base = os.path.splitext(os.path.basename(args.dataset))[0]
-        sampling_info = f"sample{args.sample_data_size}" if args.sample_data_size else "full"
-        seed_info = f"seed{args.seed}" if args.seed is not None else "noseed"
-        base_filename = f"baseline_simple_{dataset_base}_{sampling_info}_{seed_info}_{timestamp}"
-
-        # Save JSON
-        results_filename = os.path.join(effective_output_dir, f"{base_filename}_results.json")
-        try:
-            with open(results_filename, 'w', encoding='utf-8') as f:
-                json.dump(baseline_results, f, indent=4)
-            print(f"Baseline results saved to: {results_filename}")
-        except Exception as e: print(f"Error saving baseline JSON: {e}")
-
-        # Save CSV
-        try:
-            csv_filename = os.path.join(effective_output_dir, f"{base_filename}_results.csv")
-            header = "BaselineName,Model,Accuracy,AvgTokens"
-            with open(csv_filename, 'w', encoding='utf-8') as f:
-                f.write(header + '\n')
-                for entry in baseline_results:
-                     f.write(f"{entry['baseline_prompt_name']},{entry['model_name']},{entry['accuracy']:.6f},{entry['average_tokens']:.2f}\n")
-            print(f"Baseline results summary saved to: {csv_filename}")
-        except Exception as e: print(f"Error saving baseline CSV: {e}")
-    else:
-        print("\nNo baseline results generated.")
-
-    print("\n--- Simplified Baseline Experiment Complete ---")
-
-# python BaselineEvalutionScript.py \
-#     --dataset "testsets/implicatures.json" \
-#     --sample_data_size 3 \
-#     --seed 42 \
-#     --output_dir "output" \
-#     --max_new_tokens 1 \
-#     --device "auto"
+        except Exception as e:
+            raise RuntimeError(f"Failed during model generation or decoding: {e}") from e
