@@ -202,11 +202,11 @@ def run_optimization_experiment(
                 for i, current_sol in enumerate(run_solutions):
                     is_duplicate = False
                     for existing_sol in unique_solutions_single_run:
-                        if deduplicator.is_equal(current_sol, existing_sol):
+                        if deduplicator.is_equal(current_sol[0], existing_sol):
                             is_duplicate = True
                             break
                     if not is_duplicate:
-                        unique_solutions_single_run.append(current_sol)
+                        unique_solutions_single_run.append(current_sol[0])
                         unique_objectives_list_single_run.append(run_objectives[i])
         else:
                 print(f"Run {run + 1} finished. No non-dominated solutions found.")
@@ -219,9 +219,18 @@ def run_optimization_experiment(
         print(f"Run {run + 1} duration: {end_time - start_time:.2f} seconds.")
         print(f"Run {run + 1} finished. Found {len(unique_solutions_single_run)} non-duplicated solutions.")
         print(f"Run {run + 1} finished. Found {len(unique_objectives_list_single_run)} objectives non-duplicated solutions.")
-        all_run_solutions.extend(unique_solutions_single_run)
-        all_run_objectives.extend(unique_objectives_list_single_run) # Append the array of objectives
+        all_run_solutions.append(unique_solutions_single_run)
+        all_run_objectives.append(unique_objectives_list_single_run) # Append the array of objectives
 
+    all_run_solutions_temp =[]
+    all_run_objectives_temp = []    
+    for run in range(num_runs):
+        for solution in all_run_solutions[run]:
+            all_run_solutions_temp.append(solution)
+        for objective in all_run_objectives[run]:
+            all_run_objectives_temp.append(objective)
+    all_run_solutions = all_run_solutions_temp
+    all_run_objectives = all_run_objectives_temp
 
     # --- 3. Aggregate and Find Final Pareto Front ---
     if not all_run_solutions:
@@ -234,16 +243,16 @@ def run_optimization_experiment(
     for i, current_sol in enumerate(all_run_solutions):
         is_duplicate = False
         # Check against already added unique solutions
-        # print('Starting:', current_sol[0],'\n')
+        print('Starting:', current_sol,'\n')
         for existing_sol in unique_solutions_across_runs:
-            if deduplicator.is_equal(current_sol[0], existing_sol):
-                # print(existing_sol,current_sol[0],deduplicator.is_equal(current_sol[0], existing_sol))
+            if deduplicator.is_equal(current_sol, existing_sol):
+                print(existing_sol,current_sol,deduplicator.is_equal(current_sol, existing_sol))
                 is_duplicate = True
                 break
         # If it's not a duplicate of any existing unique solution, add it
         if not is_duplicate:
             # print('Entrou: ', current_sol[0])
-            unique_solutions_across_runs.append(current_sol[0])
+            unique_solutions_across_runs.append(current_sol)
             unique_objectives_across_runs.append(all_run_objectives[i])
         # print('-'*40)
         # print(unique_solutions_across_runs)

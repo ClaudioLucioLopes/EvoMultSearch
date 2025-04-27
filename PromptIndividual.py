@@ -1,3 +1,6 @@
+import copy
+from jinja2 import Template
+
 # --- Required Mappings (MUST BE UPDATED in your code) ---
 
 PROMPT_TEMPLATE_STRING = r"""
@@ -126,6 +129,14 @@ RULE_TO_COMPONENTS = {
 }
 ALL_RULE_IDENTIFIERS = list(RULE_TO_COMPONENTS.keys())
 
+# --- Jinja2 Template Object (Load once if possible) ---
+# Load globally or pass it if needed elsewhere. Defined here for completeness.
+try:
+    # Ensure PROMPT_TEMPLATE_STRING is defined before this class
+    prompt_template = Template(PROMPT_TEMPLATE_STRING)
+except NameError:
+    prompt_template = None
+    print("Warning: PROMPT_TEMPLATE_STRING not defined globally, prompt rendering might fail.")
 
 # --- PromptIndividual Class Definition ---
 import torch
@@ -237,73 +248,25 @@ class PromptIndividual:
                 f"ActiveComponents: [{content_summary}])")
     
     def copy(self):
-        import copy
         return copy.deepcopy(self)
     
-    def execute_prompt_with_transformer(self, device: str = "auto",
-                                        max_new_tokens: int = 512,**generation_kwargs: Any # Pass additional args to model.generate (e.g., temperature, do_sample)
-    ) -> Tuple[str, int, int]:
+    def render_prompt_string(self, actual_input: Optional[str] = None) -> str:
         """
-        Constructs a prompt from PromptIndividual, executes it using a Hugging Face
-        transformer model, and returns the response text and token counts.
+        Renders the complete prompt string using the individual's components
+        and substituting the actual input from the dataset.
 
         Args:
-            individual: An instance of the PromptIndividual class containing the
-                        prompt components, rule identifier, and model name.
-            device: The device to run inference on ("auto", "cuda", "cpu", "mps").
-                    Defaults to "auto".
-            max_new_tokens: Maximum number of new tokens to generate.
-            **generation_kwargs: Additional keyword arguments passed directly to
-                                `model.generate()`. Examples: `temperature=0.7`,
-                                `do_sample=True`, `top_k=50`.
+            actual_input: The input text from the specific dataset example.
 
         Returns:
-            A tuple containing:
-            - The generated response text (str).
-            - The number of input tokens (int).
-            - The number of newly generated output tokens (int).
-
-        Raises:
-            ImportError: If 'transformers', 'torch', or 'jinja2' are not installed.
-            ValueError: If the model_name is invalid or template rendering fails.
-            RuntimeError: If issues occur during model loading or generation (e.g., OOM).
-            Exception: Other potential errors during execution.
+            The formatted prompt string ready for the LLM.
         """
-        model_id = self.model_name
-        if not model_id:
-            raise ValueError("PromptIndividual must have a valid 'model_name' attribute set to a Hugging Face ID.")
+        if not prompt_template:
+            # Fallback if template loading failed
+            print("Error: Cannot render prompt - Jinja template not loaded.")
+            # Basic fallback representation:
+            return f"Rule: {self._rule_identifier}\nModel: {self.model_name}\nInput: {actual_input or self.input_content}"
 
-        # Create a Jinja2 template object
-        # --- Jinja2 Template Object (Needs to be created from the string) ---
-        # Ensure PROMPT_TEMPLATE_STRING is defined correctly above
-        try:
-            prompt_template = Template(PROMPT_TEMPLATE_STRING)
-        except NameError:
-            raise NameError("PROMPT_TEMPLATE_STRING is not defined. Make sure the template string is included.")
-
-        # --- 1. Get Model and Tokenizer---
-        tokenizer = None
-        model = None
-
-        try:
-            tokenizer = AutoTokenizer.from_pretrained(model_id)
-            model = AutoModelForCausalLM.from_pretrained(
-                    model_id,
-                    device_map="auto", # device_map='auto' is often needed with quantization
-                    torch_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16, # Use bfloat16 if available for better perf/acc
-                    trust_remote_code=True, # Sometimes needed for custom architectures
-                    # use_flash_attention_2=True, # Optional: Requires flash-attn library for faster attention
-                )
-                # If not using device_map, manually move model:
-                # if not bnb_config and device != "auto":
-                #     model.to(torch.device(device)) # Move model to specified device if not quantized
-
-            model.eval() # Set model to evaluation mode
-        except Exception as e:
-            raise RuntimeError(f"Failed to load model or tokenizer '{model_id}': {e}") from e
-
-        
-        # --- 2. Prepare Prompt ---
         try:
             template_context: Dict[str, Any] = {
                 "rule_identifier": self.get_rule_identifier(),
@@ -312,52 +275,133 @@ class PromptIndividual:
                 "instr_content": self.instr_content,
                 "examples_content": self.examples_content,
                 "cot_content": self.cot_content,
-                "input_content": self.input_content
+                # Use actual input if provided, otherwise use the placeholder
+                "input_content": actual_input if actual_input is not None else self.input_content
             }
-            rendered_prompt = prompt_template.render(template_context)
-            # print('---'*40,rendered_prompt)
+            return prompt_template.render(template_context)
         except Exception as e:
-            raise ValueError(f"Failed to render prompt template: {e}") from e
+            print(f"Error rendering prompt template for rule {self._rule_identifier}: {e}")
+            # Return error string or raise exception depending on desired handling
+            return f"Error rendering prompt: {e}"
+    
+    # def execute_prompt_with_transformer(self, device: str = "auto",
+    #                                     max_new_tokens: int = 512,**generation_kwargs: Any # Pass additional args to model.generate (e.g., temperature, do_sample)
+    # ) -> Tuple[str, int, int]:
+    #     """
+    #     Constructs a prompt from PromptIndividual, executes it using a Hugging Face
+    #     transformer model, and returns the response text and token counts.
+
+    #     Args:
+    #         individual: An instance of the PromptIndividual class containing the
+    #                     prompt components, rule identifier, and model name.
+    #         device: The device to run inference on ("auto", "cuda", "cpu", "mps").
+    #                 Defaults to "auto".
+    #         max_new_tokens: Maximum number of new tokens to generate.
+    #         **generation_kwargs: Additional keyword arguments passed directly to
+    #                             `model.generate()`. Examples: `temperature=0.7`,
+    #                             `do_sample=True`, `top_k=50`.
+
+    #     Returns:
+    #         A tuple containing:
+    #         - The generated response text (str).
+    #         - The number of input tokens (int).
+    #         - The number of newly generated output tokens (int).
+
+    #     Raises:
+    #         ImportError: If 'transformers', 'torch', or 'jinja2' are not installed.
+    #         ValueError: If the model_name is invalid or template rendering fails.
+    #         RuntimeError: If issues occur during model loading or generation (e.g., OOM).
+    #         Exception: Other potential errors during execution.
+    #     """
+    #     model_id = self.model_name
+    #     if not model_id:
+    #         raise ValueError("PromptIndividual must have a valid 'model_name' attribute set to a Hugging Face ID.")
+
+    #     # Create a Jinja2 template object
+    #     # --- Jinja2 Template Object (Needs to be created from the string) ---
+    #     # Ensure PROMPT_TEMPLATE_STRING is defined correctly above
+    #     try:
+    #         prompt_template = Template(PROMPT_TEMPLATE_STRING)
+    #     except NameError:
+    #         raise NameError("PROMPT_TEMPLATE_STRING is not defined. Make sure the template string is included.")
+
+    #     # --- 1. Get Model and Tokenizer---
+    #     tokenizer = None
+    #     model = None
+
+    #     try:
+    #         tokenizer = AutoTokenizer.from_pretrained(model_id)
+    #         model = AutoModelForCausalLM.from_pretrained(
+    #                 model_id,
+    #                 device_map="auto", # device_map='auto' is often needed with quantization
+    #                 torch_dtype=torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16, # Use bfloat16 if available for better perf/acc
+    #                 trust_remote_code=True, # Sometimes needed for custom architectures
+    #                 # use_flash_attention_2=True, # Optional: Requires flash-attn library for faster attention
+    #             )
+    #             # If not using device_map, manually move model:
+    #             # if not bnb_config and device != "auto":
+    #             #     model.to(torch.device(device)) # Move model to specified device if not quantized
+
+    #         model.eval() # Set model to evaluation mode
+    #     except Exception as e:
+    #         raise RuntimeError(f"Failed to load model or tokenizer '{model_id}': {e}") from e
+
+        
+    #     # --- 2. Prepare Prompt ---
+    #     try:
+    #         template_context: Dict[str, Any] = {
+    #             "rule_identifier": self.get_rule_identifier(),
+    #             "context_content": self.context_content,
+    #             "req_content": self.req_content,
+    #             "instr_content": self.instr_content,
+    #             "examples_content": self.examples_content,
+    #             "cot_content": self.cot_content,
+    #             "input_content": self.input_content
+    #         }
+    #         rendered_prompt = prompt_template.render(template_context)
+    #         # print('---'*40,rendered_prompt)
+    #     except Exception as e:
+    #         raise ValueError(f"Failed to render prompt template: {e}") from e
         
 
-        # --- 3. Tokenize Input ---
-        try:
-            # Ensure tokenizer has a pad token; common for generation with left padding
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token 
+    #     # --- 3. Tokenize Input ---
+    #     try:
+    #         # Ensure tokenizer has a pad token; common for generation with left padding
+    #         if tokenizer.pad_token is None:
+    #             tokenizer.pad_token = tokenizer.eos_token 
 
-            inputs = tokenizer(rendered_prompt, return_tensors="pt", padding=False, truncation=False) # No padding/truncation here
-            input_ids = inputs["input_ids"].to(model.device) # Move input IDs to model's device
-            input_token_count = input_ids.shape[1]
-        except Exception as e:
-            raise RuntimeError(f"Failed to tokenize prompt: {e}") from e
+    #         inputs = tokenizer(rendered_prompt, return_tensors="pt", padding=False, truncation=False) # No padding/truncation here
+    #         input_ids = inputs["input_ids"].to(model.device) # Move input IDs to model's device
+    #         input_token_count = input_ids.shape[1]
+    #     except Exception as e:
+    #         raise RuntimeError(f"Failed to tokenize prompt: {e}") from e
 
 
-        # print(f"Generating response (max_new_tokens={max_new_tokens})...")
-        try:
-            with torch.no_grad(): # Disable gradient calculation for inference
-                generation_config = {
-                    "max_new_tokens": max_new_tokens,
-                    "pad_token_id": tokenizer.pad_token_id,
-                    "eos_token_id": tokenizer.eos_token_id,
-                    **generation_kwargs # Merge user-provided generation args
-                }
-                # Filter out None values from generation_config if any tokenizer tokens were None
-                generation_config = {k: v for k, v in generation_config.items() if v is not None}
+    #     # print(f"Generating response (max_new_tokens={max_new_tokens})...")
+    #     try:
+    #         with torch.no_grad(): # Disable gradient calculation for inference
+    #             generation_config = {
+    #                 "max_new_tokens": max_new_tokens,
+    #                 "pad_token_id": tokenizer.pad_token_id,
+    #                 "eos_token_id": tokenizer.eos_token_id,
+    #                 **generation_kwargs # Merge user-provided generation args
+    #             }
+    #             # Filter out None values from generation_config if any tokenizer tokens were None
+    #             generation_config = {k: v for k, v in generation_config.items() if v is not None}
 
-                outputs = model.generate(input_ids,**generation_config)
+    #             outputs = model.generate(input_ids,**generation_config)
 
-            # --- 5. Process Output ---
-            # Calculate output tokens
-            output_token_count = outputs.shape[1] - input_token_count
-            if output_token_count < 0: output_token_count = 0 # Handle edge case
+    #         # --- 5. Process Output ---
+    #         # Calculate output tokens
+    #         output_token_count = outputs.shape[1] - input_token_count
+    #         if output_token_count < 0: output_token_count = 0 # Handle edge case
 
-            # Decode only the newly generated tokens
-            generated_ids = outputs[0, input_token_count:]
-            response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
+    #         # Decode only the newly generated tokens
+    #         generated_ids = outputs[0, input_token_count:]
+    #         response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-            # print("Generation complete.")
-            return response_text.strip(), input_token_count, output_token_count
+    #         # print("Generation complete.")
+    #         return response_text.strip(), input_token_count, output_token_count
 
-        except Exception as e:
-            raise RuntimeError(f"Failed during model generation or decoding: {e}") from e
+    #     except Exception as e:
+    #         raise RuntimeError(f"Failed during model generation or decoding: {e}") from e
