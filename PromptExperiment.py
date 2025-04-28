@@ -78,8 +78,8 @@ def run_optimization_experiment(
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", # Check availability/requirements
         "Qwen/Qwen2.5-1.5B-Instruct",
         "meta-llama/Llama-3.2-1B-Instruct",
-        "microsoft/Phi-4-mini-instruct",
-        "google/gemma-3-1b-it"
+        "nvidia/OpenMath-Nemotron-1.5B",
+        "google/gemma-3-1b-it",
     ]
     print(f"Using models: {models_to_use}")
 

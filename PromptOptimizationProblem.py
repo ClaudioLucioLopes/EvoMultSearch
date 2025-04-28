@@ -5,6 +5,7 @@ from typing import Callable, Any, Dict, Optional, Tuple, List
 import json
 import copy
 import random
+import re
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import time # For timing model loads
@@ -42,7 +43,7 @@ class PromptOptimizationProblem(ElementwiseProblem):
         # Store exec config, ensuring defaults
         self.transformer_exec_config = transformer_exec_config if transformer_exec_config else {}
         self.transformer_exec_config.setdefault('device', 'auto')
-        self.transformer_exec_config.setdefault('max_new_tokens', 1)
+        self.transformer_exec_config.setdefault('max_new_tokens', 3)
         self.transformer_exec_config.setdefault('quantization', None)
         # self.transformer_exec_config.setdefault('temperature', 0.1)
         self.transformer_exec_config.setdefault('do_sample', False)
@@ -254,11 +255,25 @@ class PromptOptimizationProblem(ElementwiseProblem):
                 total_output_tokens += output_tokens
                 total_evaluated += 1
                 is_correct = False
-                if response_text.strip().lower() == correct_answer.lower():
+                # --- NEW ACCURACY CHECK LOGIC ---
+                processed_response = response_text.strip().lower()
+                extracted_answer = None
+
+                # Find the first occurrence of 'yes' or 'no'
+                # Use regex for potentially more robust word boundary checking
+                # Find all occurrences of 'yes' or 'no' as whole words
+                matches = re.findall(r'\b(yes|no)\b', processed_response)
+
+                if matches: # If 'yes' or 'no' was found
+                    extracted_answer = matches[0] # Take the first one found
+
+                # Compare the first found 'yes' or 'no' with the correct answer
+                if extracted_answer is not None and extracted_answer == correct_answer.lower():
                     total_correct += 1
                     is_correct = True
-                if self.debug_print:
-                    print(f"  Ex {i+1}: Resp='{response_text.strip()}', Correct='{correct_answer}', Match={is_correct}, InTok={input_tokens}, OutTok={output_tokens}")
+                # --- END NEW ACCURACY CHECK LOGIC ---
+                # if self.debug_print:
+                # print(f"  Ex {i+1}: Resp='{response_text.strip()}', Correct='{correct_answer}', Match={is_correct}, InTok={input_tokens}, OutTok={output_tokens}")
             else: # Execution failed
                  failed_executions += 1
                  if self.debug_print: print(f"  Execution failed for example {i+1}")
