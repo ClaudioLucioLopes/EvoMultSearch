@@ -1,0 +1,72 @@
+[
+    {
+        "baseline_prompt_name": "ZeroShot",
+        "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        "accuracy": 0.34,
+        "average_tokens": 55.78,
+        "example_prompt_format": "\nAnalyze the conversation. Does the second speaker's response imply 'yes' or 'no'?\nSAMPLE_INPUT_TEXT. Answer:\n\n"
+    },
+    {
+        "baseline_prompt_name": "Contextual",
+        "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        "accuracy": 0.28,
+        "average_tokens": 62.68,
+        "example_prompt_format": "\nIs Speaker 2's reply meant to be a simple yes or no? Limit your answer to either 'yes' or 'no':\\nSAMPLE_INPUT_TEXT\n"
+    },
+    {
+        "baseline_prompt_name": "ZeroShot",
+        "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+        "accuracy": 0.0,
+        "average_tokens": 54.78,
+        "example_prompt_format": "\nAnalyze the conversation. Does the second speaker's response imply 'yes' or 'no'?\nSAMPLE_INPUT_TEXT. Answer:\n\n"
+    },
+    {
+        "baseline_prompt_name": "Contextual",
+        "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+        "accuracy": 0.64,
+        "average_tokens": 61.68,
+        "example_prompt_format": "\nIs Speaker 2's reply meant to be a simple yes or no? Limit your answer to either 'yes' or 'no':\\nSAMPLE_INPUT_TEXT\n"
+    },
+    {
+        "baseline_prompt_name": "ZeroShot",
+        "model_name": "meta-llama/Llama-3.2-1B-Instruct",
+        "accuracy": 0.0,
+        "average_tokens": 55.78,
+        "example_prompt_format": "\nAnalyze the conversation. Does the second speaker's response imply 'yes' or 'no'?\nSAMPLE_INPUT_TEXT. Answer:\n\n"
+    },
+    {
+        "baseline_prompt_name": "Contextual",
+        "model_name": "meta-llama/Llama-3.2-1B-Instruct",
+        "accuracy": 0.0,
+        "average_tokens": 62.68,
+        "example_prompt_format": "\nIs Speaker 2's reply meant to be a simple yes or no? Limit your answer to either 'yes' or 'no':\\nSAMPLE_INPUT_TEXT\n"
+    },
+    {
+        "baseline_prompt_name": "ZeroShot",
+        "model_name": "nvidia/OpenMath-Nemotron-1.5B",
+        "accuracy": 0.04,
+        "average_tokens": 54.78,
+        "example_prompt_format": "\nAnalyze the conversation. Does the second speaker's response imply 'yes' or 'no'?\nSAMPLE_INPUT_TEXT. Answer:\n\n"
+    },
+    {
+        "baseline_prompt_name": "Contextual",
+        "model_name": "nvidia/OpenMath-Nemotron-1.5B",
+        "accuracy": 0.02,
+        "average_tokens": 61.68,
+        "example_prompt_format": "\nIs Speaker 2's reply meant to be a simple yes or no? Limit your answer to either 'yes' or 'no':\\nSAMPLE_INPUT_TEXT\n"
+    },
+    {
+        "baseline_prompt_name": "ZeroShot",
+        "model_name": "google/gemma-3-1b-it",
+        "accuracy": 0.2,
+        "average_tokens": 57.04,
+        "example_prompt_format": "\nAnalyze the conversation. Does the second speaker's response imply 'yes' or 'no'?\nSAMPLE_INPUT_TEXT. Answer:\n\n"
+    },
+    {
+        "baseline_prompt_name": "Contextual",
+        "model_name": "google/gemma-3-1b-it",
+        "accuracy": 0.34,
+        "average_tokens": 64.84,
+        "example_prompt_format": "\nIs Speaker 2's reply meant to be a simple yes or no? Limit your answer to either 'yes' or 'no':\\nSAMPLE_INPUT_TEXT\n"
+    }
+]

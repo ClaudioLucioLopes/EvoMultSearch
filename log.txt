@@ -1,0 +1,23 @@
+--- Experiment Setup ---
+Using models: ['deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 'meta-llama/Llama-3.2-1B-Instruct', 'nvidia/OpenMath-Nemotron-1.5B', 'google/gemma-3-1b-it']
+Attempting to load and parse BNF definitions from: grammars/implicatures.txt
+File read successfully.
+  Parsed 101 options for tag '<context>' -> key 'context'.
+  Parsed 101 options for tag '<req>' -> key 'req'.
+  Parsed 10 options for tag '<example>' -> key 'examples'.
+  Parsed 101 options for tag '<sbs>' -> key 'cot'.
+  Parsed 12 options for tag '<instr>' -> key 'instr'.
+BNF content parsing complete.
+Loaded content options for keys: ['context', 'req', 'examples', 'cot', 'instr']
+Transformer execution config: {'device': 'auto', 'max_new_tokens': 1, 'quantization': None, 'use_cache': False, 'temperature': 0.1, 'do_sample': False}
+Using main seed 42 to generate seeds for 1 runs.
+Generated run seeds: [1373158607]
+
+--- Starting Run 1/1 ---
+Loaded 483 valid records from testsets/implicatures.json
+Evaluation: Sample size 30 (Seed: 1373158607).
+Loading model/tokenizer for google/gemma-3-1b-it_auto_None...
+Model google/gemma-3-1b-it loaded and cached in 9.66s.
+Loading model/tokenizer for deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B_auto_None...
+Model deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B loaded and cached in 4.70s.
+Loading model/tokenizer for Qwen/Qwen2.5-1.5B-Instruct_auto_None...

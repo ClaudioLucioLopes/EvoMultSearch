@@ -1,6 +1,0 @@
-BaselineName,Model,Accuracy,AvgTokens
-ZeroShot,deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B,0.000000,61.68
-ZeroShot,Qwen/Qwen2.5-1.5B-Instruct,0.480000,60.68
-ZeroShot,meta-llama/Llama-3.2-1B-Instruct,0.180000,61.68
-ZeroShot,microsoft/Phi-4-mini-instruct,0.580000,59.20
-ZeroShot,google/gemma-3-1b-it,0.740000,64.84
