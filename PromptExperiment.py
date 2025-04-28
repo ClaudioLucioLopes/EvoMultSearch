@@ -243,10 +243,10 @@ def run_optimization_experiment(
     for i, current_sol in enumerate(all_run_solutions):
         is_duplicate = False
         # Check against already added unique solutions
-        print('Starting:', current_sol,'\n')
+        # print('Starting:', current_sol,'\n')
         for existing_sol in unique_solutions_across_runs:
             if deduplicator.is_equal(current_sol, existing_sol):
-                print(existing_sol,current_sol,deduplicator.is_equal(current_sol, existing_sol))
+                # print(existing_sol,current_sol,deduplicator.is_equal(current_sol, existing_sol))
                 is_duplicate = True
                 break
         # If it's not a duplicate of any existing unique solution, add it

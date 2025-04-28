@@ -42,9 +42,9 @@ class PromptOptimizationProblem(ElementwiseProblem):
         # Store exec config, ensuring defaults
         self.transformer_exec_config = transformer_exec_config if transformer_exec_config else {}
         self.transformer_exec_config.setdefault('device', 'auto')
-        self.transformer_exec_config.setdefault('max_new_tokens', 10)
+        self.transformer_exec_config.setdefault('max_new_tokens', 1)
         self.transformer_exec_config.setdefault('quantization', None)
-        self.transformer_exec_config.setdefault('temperature', 0.1)
+        # self.transformer_exec_config.setdefault('temperature', 0.1)
         self.transformer_exec_config.setdefault('do_sample', False)
 
         self.debug_print = debug_print
@@ -240,13 +240,13 @@ class PromptOptimizationProblem(ElementwiseProblem):
                  failed_executions += 1; continue
 
             # --- Execute using the loaded model/tokenizer ---
-            response_text, input_tokens, output_tokens ='yes',1,1
+            # response_text, input_tokens, output_tokens ='yes',1,1
             
-            # response_text, input_tokens, output_tokens = self._execute_single_prompt(
-            #     model=model,
-            #     tokenizer=tokenizer,
-            #     prompt_text=prompt_string
-            # )
+            response_text, input_tokens, output_tokens = self._execute_single_prompt(
+                model=model,
+                tokenizer=tokenizer,
+                prompt_text=prompt_string
+            )
 
             # --- Accumulate results ---
             if response_text is not None: # Check if execution was successful
