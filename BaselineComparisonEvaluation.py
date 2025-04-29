@@ -167,15 +167,18 @@ def execute_transformer_prompt(
 
 # --- Baseline Prompt Formatting Functions ---
 
-def format_zero_shot(input_text: str) -> str:
+def format_zero_shot_implicatures(input_text: str) -> str:
     """Creates a simple zero-shot prompt."""
     # Basic instruction suitable for the yes/no implicature task
-    instruction = "Analyze the conversation. Does the second speaker's response imply 'yes' or 'no'?"
+    instruction = "Does Speaker 2’s answer mean yes or no?"
     return f"\n{instruction}\n{input_text}. Answer:\n\n"
 
-def format_contextual(input_text: str) -> str:
+def format_contextual_implicatures(input_text: str) -> str:
     """Creates a prompt with fixed context."""
-    return f"\nIs Speaker 2's reply meant to be a simple yes or no? Limit your answer to either 'yes' or 'no':\\n{input_text}\n"
+    return f"\nAnalyze the conversation.\n{input_text}\n Does the second speaker's response imply 'yes' or 'no'?"
+
+def best_prompt_implicatures(input_text: str) -> str:
+    return f"\n\n\n\n\n\n\n\n\nShould Speaker 2 encapsulate their answer in a yes or no? Limit your answer to either 'yes' or 'no'.\\{input_text}\n\n\n"
 
 # --- Baseline Configuration ---
 
@@ -190,10 +193,13 @@ BASELINE_MODELS = [
 ]
 
 # Map names to formatting functions
-BASELINE_PROMPT_FORMATTERS = {
-    "ZeroShot": format_zero_shot,
-    "Contextual": format_contextual,
+BASELINE_PROMPT_FORMATTERS_implicatures = {
+    "ZeroShot": format_zero_shot_implicatures,
+    "Contextual": format_contextual_implicatures,
+    "BestPrompt": best_prompt_implicatures
 }
+
+BASELINE_PROMPT_FORMATTERS = BASELINE_PROMPT_FORMATTERS_implicatures
 
 
 # --- Main Execution Block ---

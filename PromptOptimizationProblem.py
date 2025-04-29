@@ -262,9 +262,22 @@ class PromptOptimizationProblem(ElementwiseProblem):
                 # Find the first occurrence of 'yes' or 'no'
                 # Use regex for potentially more robust word boundary checking
                 # Find all occurrences of 'yes' or 'no' as whole words
-                matches = re.findall(r'\b(yes|no)\b', processed_response)
+                if (('implicatures' in self.dataset_path) or ('causal_judgment' in self.dataset_path)):
+                    matches = re.findall(r'(yes|no)', processed_response)
+                elif ('epistemic_reasoning' in self.dataset_path):  
+                    matches = re.findall(r'(entailment|non-entailment)', processed_response)
+                elif ('hyperbaton' in self.dataset_path):  
+                    matches = re.findall(r'(a|b)', processed_response)
+                elif ('logical_fallacy_detection' in self.dataset_path):
+                    matches = re.findall(r'(valid|invalid)', processed_response)
+                elif ('navigate' in self.dataset_path):
+                    matches = re.findall(r'(true|false)', processed_response)
+                elif ('snarks' in self.dataset_path):
+                    matches = re.findall(r"(\(a\)|\(b\))", processed_response)
+                elif ('winowhy' in self.dataset_path):
+                    matches = re.findall(r"(correct|incorrect)", processed_response)
 
-                if matches: # If 'yes' or 'no' was found
+                if matches: 
                     extracted_answer = matches[0] # Take the first one found
 
                 # Compare the first found 'yes' or 'no' with the correct answer
