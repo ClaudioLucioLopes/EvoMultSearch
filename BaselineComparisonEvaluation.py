@@ -299,7 +299,21 @@ if __name__ == "__main__":
                     # Find the first occurrence of 'yes' or 'no'
                     # Use regex for potentially more robust word boundary checking
                     # Find all occurrences of 'yes' or 'no' as whole words
-                    matches = re.findall(r'\b(yes|no)\b', processed_response)
+                    if (('implicatures' in args.dataset) or ('causal_judgment' in args.dataset)):
+                        matches = re.findall(r'(yes|no)', processed_response)
+                    elif ('epistemic_reasoning' in args.dataset):  
+                        matches = re.findall(r'(entailment|non-entailment)', processed_response)
+                    elif ('hyperbaton' in args.dataset):  
+                        matches = re.findall(r'(a|b)', processed_response)
+                    elif ('logical_fallacy_detection' in args.dataset):
+                        matches = re.findall(r'(valid|invalid)', processed_response)
+                    elif ('navigate' in args.dataset):
+                        matches = re.findall(r'(true|false)', processed_response)
+                    elif ('snarks' in args.dataset):
+                        matches = re.findall(r"(\(a\)|\(b\))", processed_response)
+                    elif ('winowhy' in args.dataset):
+                        matches = re.findall(r"(correct|incorrect)", processed_response)
+
 
                     if matches: # If 'yes' or 'no' was found
                         extracted_answer = matches[0] # Take the first one found
