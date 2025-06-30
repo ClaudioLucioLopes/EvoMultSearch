@@ -1,4 +1,4 @@
-# EvoMultSearch: Evolutionary Multi-objective Multi-provider Prompt-tuning
+# EvoMultSearch: Assessing an evolutionary search engine for small language models, prompts, and evaluation metrics
 
 ##Introduction
 
